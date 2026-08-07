@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 /// <summary>
-/// Drives the showcase row and keeps every lab material setting in one place.
+/// Drives the row: how the subjects move, where the camera looks, what's on show.
 /// Runs in Edit Mode as well as Play Mode, so footage can be recorded straight
 /// from the Game View without entering play.
 /// </summary>
@@ -21,12 +22,26 @@ public class GalleryRig : MonoBehaviour
         public GameObject labelObject;
         [Tooltip("Clear this for anything a bounce would ruin - particles, ribbons, UI.")]
         public bool animate = true;
+        [Tooltip("A flat panel rather than a sphere: it hops, but never spins or squashes.")]
+        public bool flat;
         public Vector3 restPosition;
         public Vector3 restScale = Vector3.one;
         public Quaternion restRotation = Quaternion.identity;
     }
 
     public Subject[] subjects = new Subject[0];
+
+    [Header("2D panels")]
+    [Tooltip("The picture 2D shaders recolour. Usually the live render of the reference sphere.")]
+    public Texture sampleTexture;
+    [Tooltip("Camera pointed at the reference sphere. Rendered by hand so the picture updates in Edit Mode.")]
+    public Camera sampleCamera;
+    [Tooltip("What the sample camera renders into, before the circle is cut out of it.")]
+    public RenderTexture sampleSource;
+    [Tooltip("Blit material that punches the circular alpha. Hidden/Gallery/CircleCut.")]
+    public Material sampleCutter;
+    [Tooltip("The reference sphere itself. Turns slowly so the panels aren't showing a still.")]
+    public Transform sampleSubject;
 
     [Header("Shelves")]
     [Tooltip("Subjects per shelf. Leave at 0 to work it out from how many there are; 10 is the ceiling either way.")]
@@ -61,7 +76,7 @@ public class GalleryRig : MonoBehaviour
     public float spinDegreesPerSecond = 20f;
 
     [Header("Camera")]
-    public Camera labCamera;
+    [FormerlySerializedAs("labCamera")] public Camera galleryCamera;
     [Tooltip("How far the camera sits back on a close-up.")]
     public float closeUpDistance = 4.2f;
     [Tooltip("How high above its aim point the camera sits.")]
@@ -76,16 +91,6 @@ public class GalleryRig : MonoBehaviour
     [SerializeField, HideInInspector] bool wideShotSaved;
     [SerializeField, HideInInspector] Vector3 wideCamPosition;
     [SerializeField, HideInInspector] Vector3 wideCamEuler;
-
-    [Header("PS1 look, across every lab material")]
-    [Tooltip("Snap vertices to a virtual pixel grid, which makes silhouettes wobble.")]
-    public bool ps1VertexSnap = true;
-    [Tooltip("Height of that pixel grid. 240 is the value the game ships with.")]
-    public float ps1SnapPixels = 240f;
-    [Tooltip("Skip perspective correction on UVs, so textures swim across triangles.")]
-    public bool ps1AffineWarp = true;
-    [Range(0f, 1f), Tooltip("0 is a modern GPU, 1 is full 1996.")]
-    public float ps1AffineAmount = 1f;
 
     void OnEnable()
     {
@@ -117,6 +122,7 @@ public class GalleryRig : MonoBehaviour
         float now = (float)EditorApplication.timeSinceStartup;
         Animate(now);
         StepParticles(now);
+        RenderSample(now);
         SceneView.RepaintAll();
     }
 
@@ -144,6 +150,25 @@ public class GalleryRig : MonoBehaviour
     }
 
     float _lastParticleTime;
+
+    /// <summary>
+    /// Unity doesn't drive an off-screen camera in Edit Mode, so the picture the 2D
+    /// panels recolour would be a frozen frame. Turn the reference sphere and render it.
+    /// </summary>
+    void RenderSample(float now)
+    {
+        if (sampleCamera == null) return;
+
+        if (sampleSubject != null)
+            sampleSubject.rotation = Quaternion.Euler(-15f, now * spinDegreesPerSecond, 0f);
+
+        sampleCamera.Render();
+
+        // the camera fills a square; cut it to a circle so the panels show the sphere alone
+        var target = sampleTexture as RenderTexture;
+        if (sampleCutter != null && sampleSource != null && target != null)
+            Graphics.Blit(sampleSource, target, sampleCutter);
+    }
 #endif
 
     public int FocusIndex { get { return focusIndex; } }
@@ -151,9 +176,9 @@ public class GalleryRig : MonoBehaviour
     /// <summary>Remember where the camera is now as the wide shot.</summary>
     public void SaveWideShot()
     {
-        if (labCamera == null) return;
-        wideCamPosition = labCamera.transform.position;
-        wideCamEuler = labCamera.transform.rotation.eulerAngles;
+        if (galleryCamera == null) return;
+        wideCamPosition = galleryCamera.transform.position;
+        wideCamEuler = galleryCamera.transform.rotation.eulerAngles;
         wideShotSaved = true;
     }
 
@@ -189,14 +214,14 @@ public class GalleryRig : MonoBehaviour
 
     void UpdateCamera()
     {
-        if (labCamera == null) return;
+        if (galleryCamera == null) return;
 
         if (focusIndex < 0 || subjects == null || focusIndex >= subjects.Length)
         {
             if (wideShotSaved)
             {
-                labCamera.transform.position = wideCamPosition;
-                labCamera.transform.rotation = Quaternion.Euler(wideCamEuler);
+                galleryCamera.transform.position = wideCamPosition;
+                galleryCamera.transform.rotation = Quaternion.Euler(wideCamEuler);
             }
             return;
         }
@@ -220,8 +245,8 @@ public class GalleryRig : MonoBehaviour
             distance = closeUpDistance * 1.6f;
         }
 
-        labCamera.transform.position = look + new Vector3(0f, closeUpHeight, -distance);
-        labCamera.transform.LookAt(look);
+        galleryCamera.transform.position = look + new Vector3(0f, closeUpHeight, -distance);
+        galleryCamera.transform.LookAt(look);
     }
 
     void Animate(float time)
@@ -249,7 +274,8 @@ public class GalleryRig : MonoBehaviour
             {
                 s.target.position = s.restPosition;
                 s.target.localScale = s.restScale;
-                s.target.rotation = Quaternion.Euler(-15f, time * spinDegreesPerSecond, 0f);
+                // a panel spun on its axis would just turn edge-on to the camera
+                if (!s.flat) s.target.rotation = Quaternion.Euler(-15f, time * spinDegreesPerSecond, 0f);
                 continue;
             }
 
@@ -267,10 +293,13 @@ public class GalleryRig : MonoBehaviour
             float contact = 1f - Mathf.Clamp01(height / Mathf.Max(0.01f, jumpHeight * 0.12f));
             float speedNorm = Mathf.Clamp01(Mathf.Abs(velocity) / Mathf.Max(0.01f, 4f * jumpHeight / bigDur));
 
-            float sy = Mathf.Max(0.2f, 1f + stretch * speedNorm * (1f - contact) - squash * contact);
-            float sxz = 1f / Mathf.Sqrt(sy); // keep the volume, which is what sells the rubbery look
-
-            s.target.localScale = new Vector3(s.restScale.x * sxz, s.restScale.y * sy, s.restScale.z * sxz);
+            float sy = 1f;
+            if (!s.flat)
+            {
+                sy = Mathf.Max(0.2f, 1f + stretch * speedNorm * (1f - contact) - squash * contact);
+                float sxz = 1f / Mathf.Sqrt(sy); // keep the volume, which is what sells the rubbery look
+                s.target.localScale = new Vector3(s.restScale.x * sxz, s.restScale.y * sy, s.restScale.z * sxz);
+            }
 
             // keep the bottom on the floor while it's being flattened
             float sink = (1f - sy) * radius;
@@ -296,7 +325,6 @@ public class GalleryRig : MonoBehaviour
     void OnValidate()
     {
         if (motion == Motion.Static) RestSubjects();
-        ApplyMaterials();
         ApplySolo();
         UpdateCamera();
     }
@@ -312,47 +340,19 @@ public class GalleryRig : MonoBehaviour
             if (s == null || s.target == null) continue;
 
             var renderer = s.target.GetComponent<Renderer>();
-            if (renderer == null) continue;
+            if (renderer != null)
+                foreach (var m in renderer.sharedMaterials)
+                    if (m != null && seen.Add(m)) yield return m;
 
-            foreach (var m in renderer.sharedMaterials)
-                if (m != null && seen.Add(m)) yield return m;
-        }
-    }
-
-    /// <summary>
-    /// Push the PS1 toggles onto every material in the row. Per-shader settings are
-    /// edited on the materials themselves, so there is nothing else to sync here.
-    /// </summary>
-    public void ApplyMaterials()
-    {
-        foreach (var m in Materials())
-        {
-            if (m.HasProperty("_VertexSnapPixels")) m.SetFloat("_VertexSnapPixels", SnapValue);
-            if (m.HasProperty("_AffineAmount")) m.SetFloat("_AffineAmount", ps1AffineWarp ? ps1AffineAmount : 0f);
-        }
-    }
-
-    /// <summary>Grid size with the toggle folded in: 0 means the shader skips snapping.</summary>
-    float SnapValue { get { return ps1VertexSnap ? ps1SnapPixels : 0f; } }
-
-    /// <summary>Read the PS1 values back off the first material that carries them.</summary>
-    public void PullFromMaterials()
-    {
-        foreach (var m in Materials())
-        {
-            if (!m.HasProperty("_VertexSnapPixels")) continue;
-
-            float snap = m.GetFloat("_VertexSnapPixels");
-            ps1VertexSnap = snap >= 1f;
-            if (ps1VertexSnap) ps1SnapPixels = snap;
-
-            if (m.HasProperty("_AffineAmount"))
+            // 2D panels draw through a CanvasRenderer, so their material isn't on a Renderer.
+            // Skip graphics left on the stock UI material - that's the mask, not a shader on show.
+            foreach (var graphic in s.target.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
             {
-                float affine = m.GetFloat("_AffineAmount");
-                ps1AffineWarp = affine > 0f;
-                if (ps1AffineWarp) ps1AffineAmount = affine;
+                var m = graphic.material;
+                if (m == null || m == graphic.defaultMaterial) continue;
+                if (seen.Add(m)) yield return m;
             }
-            return;
         }
     }
+
 }

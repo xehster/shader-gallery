@@ -14,6 +14,7 @@ public static class GalleryScene
     const float Step = 3f;
     const float SphereY = 1f;
     const float SphereScale = 2f;
+    const float PanelPixels = 200f; // canvas units before scaling down to metres
 
     public const int MaxPerShelf = 10;
 
@@ -27,19 +28,29 @@ public static class GalleryScene
         return Object.FindFirstObjectByType<GalleryRig>();
     }
 
-    /// <summary>Reuse a lab material on this shader if there is one, otherwise make it.</summary>
+    /// <summary>
+    /// Reuse a gallery material on this shader if there is one, otherwise make it.
+    /// The name is checked first: several materials can share a shader, and grabbing
+    /// whichever one turns up first lands you with the backdrop's material.
+    /// </summary>
     public static Material MaterialFor(Shader shader)
     {
-        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { MaterialsFolder }))
+        string wanted = MaterialsFolder + "/M_" + ShortName(shader).Replace(" ", "") + ".mat";
+
+        var byName = AssetDatabase.LoadAssetAtPath<Material>(wanted);
+        if (byName != null && byName.shader == shader) return byName;
+
+        if (byName == null)
         {
-            var m = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
-            if (m != null && m.shader == shader) return m;
+            var created = new Material(shader);
+            AssetDatabase.CreateAsset(created, wanted);
+            return created;
         }
 
-        var created = new Material(shader);
-        AssetDatabase.CreateAsset(created, AssetDatabase.GenerateUniqueAssetPath(
-            MaterialsFolder + "/M_" + ShortName(shader).Replace(" ", "") + ".mat"));
-        return created;
+        // name is taken by a material on a different shader, so fall back to a fresh one
+        var spare = new Material(shader);
+        AssetDatabase.CreateAsset(spare, AssetDatabase.GenerateUniqueAssetPath(wanted));
+        return spare;
     }
 
     public static string ShortName(Shader shader)
@@ -72,6 +83,57 @@ public static class GalleryScene
             restScale = go.transform.localScale,
             restRotation = go.transform.rotation
         });
+    }
+
+    /// <summary>
+    /// UI shaders expect the things a Canvas hands them: the GUI z-test mode, a clip
+    /// rect, vertex colours. Give them a world-space Canvas rather than a quad, or the
+    /// next one you drop in draws garbage. The picture they recolour is the sample
+    /// texture on the rig, which is a live render of a reference sphere.
+    /// </summary>
+    public static void AddCanvas(GalleryRig rig, Shader shader)
+    {
+        var root = SpheresRoot();
+        var mat = MaterialFor(shader);
+        string label = ShortName(shader);
+
+        var go = new GameObject("Panel_" + label.Replace(" ", ""), typeof(Canvas), typeof(CanvasRenderer),
+            typeof(UnityEngine.UI.RawImage));
+        go.transform.SetParent(root, true);
+        Undo.RegisterCreatedObjectUndo(go, "Add to gallery");
+
+        var canvas = go.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+
+        var rect = go.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(PanelPixels, PanelPixels);
+        rect.localScale = Vector3.one * (SphereScale / PanelPixels);
+        rect.localRotation = Quaternion.identity;
+
+        var image = go.GetComponent<UnityEngine.UI.RawImage>();
+        image.material = mat;
+        image.texture = rig.sampleTexture;
+
+        Append(rig, new GalleryRig.Subject
+        {
+            label = label,
+            target = go.transform,
+            labelObject = MakeLabel(root, label),
+            animate = true,
+            flat = true,
+            restPosition = new Vector3(0f, SphereY, 0f),
+            restScale = rect.localScale,
+            restRotation = Quaternion.identity
+        });
+    }
+
+    /// <summary>UI shaders carry the stencil and colour-mask properties of UI-Default.</summary>
+    public static bool IsUIShader(Shader shader)
+    {
+        var probe = new Material(shader);
+        bool ui = probe.HasProperty("_StencilComp") && probe.HasProperty("_ColorMask");
+        Object.DestroyImmediate(probe);
+        return ui;
     }
 
     public static void AddParticles(GalleryRig rig, GameObject prefab)
@@ -202,7 +264,7 @@ public static class GalleryScene
             backdrop.transform.localScale = new Vector3(width + 28f, stackHeight + 14f, 0.5f);
         }
 
-        var cam = rig.labCamera != null ? rig.labCamera : Camera.main;
+        var cam = rig.galleryCamera != null ? rig.galleryCamera : Camera.main;
         if (cam != null)
         {
             // fit both ways: the row can be wider than it is tall, or the other way round
@@ -215,7 +277,7 @@ public static class GalleryScene
 
             cam.transform.position = new Vector3(0f, stackHeight * 0.45f, -dist);
             cam.transform.rotation = Quaternion.identity;
-            rig.labCamera = cam;
+            rig.galleryCamera = cam;
             rig.SaveWideShot();
             rig.FocusWide();
         }

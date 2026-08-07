@@ -26,7 +26,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _OutlineWidth: 0.06
-    - _VertexSnapPixels: 240
+    - _VertexSnapPixels: 0
     m_Colors:
     - _Color: {r: 0.9, g: 0.25, b: 1.8, a: 1}
   m_BuildTextureStacks: []

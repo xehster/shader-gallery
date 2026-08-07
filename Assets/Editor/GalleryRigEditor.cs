@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// The lab's control panel. What gets used every session sits at the top;
+/// The gallery's control panel. What gets used every session sits at the top;
 /// everything else folds away so the inspector doesn't turn into a wall.
 /// </summary>
 [CustomEditor(typeof(GalleryRig))]
@@ -31,8 +31,6 @@ public class GalleryRigEditor : Editor
         var rig = (GalleryRig)target;
 
         DrawMotion(rig);
-        EditorGUILayout.Space(2f);
-        DrawPS1(rig);
         EditorGUILayout.Space(2f);
         DrawCloseUps(rig);
 
@@ -66,24 +64,9 @@ public class GalleryRigEditor : Editor
         Touch(rig);
     }
 
-    void DrawPS1(GalleryRig rig)
-    {
-        EditorGUI.BeginChangeCheck();
-        bool snap = EditorGUILayout.ToggleLeft("Vertex snap", rig.ps1VertexSnap);
-        bool affine = EditorGUILayout.ToggleLeft("Affine warp", rig.ps1AffineWarp);
-        if (!EditorGUI.EndChangeCheck()) return;
-
-        Undo.RecordObject(rig, "PS1 toggle");
-        rig.ps1VertexSnap = snap;
-        rig.ps1AffineWarp = affine;
-        rig.ApplyMaterials();
-        SaveMaterials(rig);
-        Touch(rig);
-    }
-
     void DrawCloseUps(GalleryRig rig)
     {
-        if (rig.labCamera == null)
+        if (rig.galleryCamera == null)
         {
             EditorGUILayout.HelpBox("No camera set, so close-ups do nothing.", MessageType.Info);
             return;
@@ -185,7 +168,7 @@ public class GalleryRigEditor : Editor
 
     void DrawCameraSettings(GalleryRig rig)
     {
-        Field("labCamera", "Camera");
+        Field("galleryCamera", "Camera");
         Field("closeUpDistance", "Distance");
         Field("closeUpHeight", "Height");
         Field("closeUpFollow", "Follow the jump");
@@ -206,18 +189,6 @@ public class GalleryRigEditor : Editor
     /// </summary>
     void DrawMaterialSettings(GalleryRig rig)
     {
-        EditorGUI.BeginChangeCheck();
-        Field("ps1SnapPixels", "PS1 grid, px");
-        Field("ps1AffineAmount", "PS1 warp amount");
-        if (EditorGUI.EndChangeCheck())
-        {
-            serializedObject.ApplyModifiedProperties();
-            rig.ApplyMaterials();
-            SceneView.RepaintAll();
-        }
-
-        EditorGUILayout.Space(4f);
-
         foreach (var mat in rig.Materials())
         {
             string title = mat.shader != null ? GalleryScene.ShortName(mat.shader) : mat.name;
@@ -329,14 +300,6 @@ public class GalleryRigEditor : Editor
         EditorUtility.SetDirty(rig);
         GalleryScene.MarkSceneDirty(rig);
         SceneView.RepaintAll();
-    }
-
-    static void SaveMaterials(GalleryRig rig)
-    {
-        foreach (var m in rig.Materials())
-            EditorUtility.SetDirty(m);
-
-        AssetDatabase.SaveAssets();
     }
 
     static ScriptableRendererData RendererData()

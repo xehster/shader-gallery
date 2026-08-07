@@ -4,6 +4,8 @@ I write shaders and then lose them. One sits in a game project, another in some 
 
 It's a Unity project with one scene: shelves, a sphere per shader, a label on the shelf edge. You drop a shader into the project, tick it in a list, and it shows up next to the others. Good for comparing them, and for recording a clip of one without building anything around it.
 
+UI shaders go in here too. Those get a flat panel instead of a sphere, showing a live render of a reference sphere for them to work on.
+
 ![The gallery scene](docs/gallery.gif)
 
 Unity 6000.0.32f1, URP 17.0.3.
@@ -20,15 +22,24 @@ Shaders that already have a job somewhere else say so in the list. The skybox, a
 
 Shelves hold ten and then a new one starts. The split is even, so eleven shaders sit as 6+5 and twenty as 10+10. You can also set the number per shelf yourself.
 
+## 2D shaders
+
+UI shaders don't belong on a sphere, so they get a flat panel instead. A camera off to the side renders a reference sphere into a render texture, and that picture is what the panel shows. The shader recolours it live, so the sphere keeps turning inside the panel.
+
+The list marks a shader as 2D on its own if it carries the stencil and colour mask properties that everything based on UI-Default has. The little **3D / 2D** button next to the tick is there to overrule that when the guess is wrong.
+
+Panels sit on a world space Canvas, not a quad. UI shaders expect a Canvas to hand them the GUI z-test mode, a clip rect and vertex colours, and without one the next shader you drop in can draw garbage.
+
+Swap the picture for your own art in **Sample Texture** on the rig. For something like a gradient map, a drawing with real black linework shows the effect better than a checker.
+
 ## What the panel does
 
 **Spin / Bounce / Still.** Bounce runs a wave with a small second hop and a squash on landing. Spin just turns everything in place. Still is still. All of it runs in Edit Mode, no need to hit play, and particle systems get stepped by hand for the same reason.
 
-**Vertex snap / Affine warp.** My shaders have a PS1 thing going on. These two switch off both artifacts on every material at once, which is the quickest way to see what a shader looks like underneath.
 
 **Close-up.** A button per subject. The camera flies in and follows the jump, everything else hides. **Labels** turns off the text for recording.
 
-**Shader settings.** A foldout per material with that shader's own properties. Nothing is hard-coded, so whatever you add brings its settings with it.
+**Shader settings.** A foldout per material with that shader's own properties, drawn by Unity's own material inspector. Nothing is hard-coded, so whatever you add brings its settings with it. The PS1 knobs on my shaders live here too, per material, rather than being driven from the panel.
 
 **Renderer features.** Toggles for the full-screen passes on the URP renderer. These are project-wide, so put them back when you're done.
 

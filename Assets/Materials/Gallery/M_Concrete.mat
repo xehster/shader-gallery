@@ -47,7 +47,7 @@ Material:
     - _ObjectTiling: 0.8
     - _Sharpness: 4
     - _Tiling: 0.3
-    - _VertexSnapPixels: 240
+    - _VertexSnapPixels: 0
     - _WhiteMix: 0.05
     m_Colors:
     - _Tint: {r: 1, g: 1, b: 1, a: 1}

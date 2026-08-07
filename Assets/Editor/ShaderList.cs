@@ -18,6 +18,7 @@ public class ShaderList : EditorWindow
         public bool wanted;      // how the user wants them
         public int subjectIndex; // -1 when not in the scene
         public int slot;         // which material slot it sits in
+        public bool asPanel;     // show on a flat canvas instead of a sphere
     }
 
     struct Placement
@@ -105,8 +106,12 @@ public class ShaderList : EditorWindow
             {
                 row.wanted = EditorGUILayout.ToggleLeft(row.name, row.wanted, GUILayout.MinWidth(160f));
 
+                using (new EditorGUI.DisabledScope(row.inScene))
+                    row.asPanel = GUILayout.Toggle(row.asPanel, row.asPanel ? "2D" : "3D",
+                        EditorStyles.miniButton, GUILayout.Width(30f));
+
                 if (!string.IsNullOrEmpty(row.note))
-                    EditorGUILayout.LabelField(row.note, EditorStyles.miniLabel, GUILayout.Width(150f));
+                    EditorGUILayout.LabelField(row.note, EditorStyles.miniLabel, GUILayout.Width(120f));
 
                 if (GUILayout.Button("→", EditorStyles.miniButton, GUILayout.Width(22f)))
                     EditorGUIUtility.PingObject(row.asset);
@@ -142,6 +147,15 @@ public class ShaderList : EditorWindow
                             shadersInScene[slots[slot].shader] = new Placement(i, slot);
                 }
 
+                // 2D panels draw through a Graphic, so they'd otherwise look absent
+                // and ticking Apply again would add a second copy
+                foreach (var graphic in t.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+                {
+                    var m = graphic.material;
+                    if (m == null || m == graphic.defaultMaterial || m.shader == null) continue;
+                    shadersInScene[m.shader] = new Placement(i, 0);
+                }
+
                 var source = PrefabUtility.GetCorrespondingObjectFromSource(t.gameObject);
                 if (source != null) prefabsInScene[source] = i;
             }
@@ -156,6 +170,7 @@ public class ShaderList : EditorWindow
 
             var shader = AssetDatabase.LoadAssetAtPath<Shader>(path);
             if (shader == null) continue;
+            if (shader.name.StartsWith("Hidden/")) continue; // plumbing, nothing to look at
 
             Placement at;
             bool on = shadersInScene.TryGetValue(shader, out at);
@@ -167,7 +182,8 @@ public class ShaderList : EditorWindow
                 inScene = on,
                 wanted = on,
                 subjectIndex = on ? at.Subject : -1,
-                slot = on ? at.Slot : 0
+                slot = on ? at.Slot : 0,
+                asPanel = on ? PanelInScene(rig, at.Subject) : GalleryScene.IsUIShader(shader)
             });
         }
 
@@ -245,6 +261,11 @@ public class ShaderList : EditorWindow
         return found;
     }
 
+    static bool PanelInScene(GalleryRig rig, int index)
+    {
+        return index >= 0 && index < rig.subjects.Length && rig.subjects[index].flat;
+    }
+
     bool HasChanges()
     {
         int a = 0, r = 0;
@@ -280,7 +301,12 @@ public class ShaderList : EditorWindow
         for (int i = toRemove.Count - 1; i >= 0; i--) GalleryScene.Remove(rig, toRemove[i]);
 
         foreach (var row in _shaders)
-            if (row.wanted && !row.inScene) GalleryScene.AddShader(rig, (Shader)row.asset);
+        {
+            if (!row.wanted || row.inScene) continue;
+
+            if (row.asPanel) GalleryScene.AddCanvas(rig, (Shader)row.asset);
+            else GalleryScene.AddShader(rig, (Shader)row.asset);
+        }
 
         foreach (var row in _particles)
             if (row.wanted && !row.inScene) GalleryScene.AddParticles(rig, (GameObject)row.asset);
