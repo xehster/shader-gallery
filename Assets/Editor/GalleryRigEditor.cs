@@ -9,8 +9,8 @@ using UnityEngine.Rendering.Universal;
 /// The lab's control panel. What gets used every session sits at the top;
 /// everything else folds away so the inspector doesn't turn into a wall.
 /// </summary>
-[CustomEditor(typeof(ShaderLabRig))]
-public class ShaderLabRigEditor : Editor
+[CustomEditor(typeof(GalleryRig))]
+public class GalleryRigEditor : Editor
 {
     static readonly string[] TrackedFeatures =
     {
@@ -28,7 +28,7 @@ public class ShaderLabRigEditor : Editor
 
     public override void OnInspectorGUI()
     {
-        var rig = (ShaderLabRig)target;
+        var rig = (GalleryRig)target;
 
         DrawMotion(rig);
         EditorGUILayout.Space(2f);
@@ -54,19 +54,19 @@ public class ShaderLabRigEditor : Editor
 
     // --- always visible ------------------------------------------------------
 
-    void DrawMotion(ShaderLabRig rig)
+    void DrawMotion(GalleryRig rig)
     {
         int now = (int)rig.motion;
         int picked = GUILayout.Toolbar(now, MotionTabs, GUILayout.Height(24f));
         if (picked == now) return;
 
-        Undo.RecordObject(rig, "ShaderLab motion");
-        rig.motion = (ShaderLabRig.Motion)picked;
-        if (rig.motion == ShaderLabRig.Motion.Static) rig.RestSubjects();
+        Undo.RecordObject(rig, "Gallery motion");
+        rig.motion = (GalleryRig.Motion)picked;
+        if (rig.motion == GalleryRig.Motion.Static) rig.RestSubjects();
         Touch(rig);
     }
 
-    void DrawPS1(ShaderLabRig rig)
+    void DrawPS1(GalleryRig rig)
     {
         EditorGUI.BeginChangeCheck();
         bool snap = EditorGUILayout.ToggleLeft("Vertex snap", rig.ps1VertexSnap);
@@ -81,7 +81,7 @@ public class ShaderLabRigEditor : Editor
         Touch(rig);
     }
 
-    void DrawCloseUps(ShaderLabRig rig)
+    void DrawCloseUps(GalleryRig rig)
     {
         if (rig.labCamera == null)
         {
@@ -123,7 +123,7 @@ public class ShaderLabRigEditor : Editor
 
     // --- folded sections -----------------------------------------------------
 
-    void DrawShelfSettings(ShaderLabRig rig)
+    void DrawShelfSettings(GalleryRig rig)
     {
         EditorGUI.BeginChangeCheck();
 
@@ -136,39 +136,39 @@ public class ShaderLabRigEditor : Editor
             Undo.RecordObject(rig, "Shelf layout");
             rig.shelfColumns = columns;
             rig.shelfSpacing = spacing;
-            ShaderLabScene.Layout(rig);
+            GalleryScene.Layout(rig);
         }
 
         EditorGUILayout.LabelField(Breakdown(rig), EditorStyles.miniLabel);
 
         if (!GUILayout.Button("Rebuild")) return;
 
-        ShaderLabScene.Layout(rig);
+        GalleryScene.Layout(rig);
         Touch(rig);
     }
 
     /// <summary>Spells out how the subjects will sit, e.g. "11 subjects: 6+5".</summary>
-    static string Breakdown(ShaderLabRig rig)
+    static string Breakdown(GalleryRig rig)
     {
         int n = rig.subjects.Length;
         if (n == 0) return "nothing on the shelves yet";
 
-        int per = ShaderLabScene.ColumnsFor(rig);
+        int per = GalleryScene.ColumnsFor(rig);
         var parts = new List<string>();
         for (int left = n; left > 0; left -= per) parts.Add(Mathf.Min(per, left).ToString());
 
         return n + " subjects: " + string.Join("+", parts.ToArray());
     }
 
-    void DrawMotionDetails(ShaderLabRig rig)
+    void DrawMotionDetails(GalleryRig rig)
     {
         Field("animateInEditMode", "Run in Edit Mode");
 
-        if (rig.motion == ShaderLabRig.Motion.Spin)
+        if (rig.motion == GalleryRig.Motion.Spin)
         {
             Field("spinDegreesPerSecond", "Degrees per second");
         }
-        else if (rig.motion == ShaderLabRig.Motion.Bounce)
+        else if (rig.motion == GalleryRig.Motion.Bounce)
         {
             Field("jumpHeight", "Jump height");
             Field("cycleSeconds", "Cycle, seconds");
@@ -183,7 +183,7 @@ public class ShaderLabRigEditor : Editor
         }
     }
 
-    void DrawCameraSettings(ShaderLabRig rig)
+    void DrawCameraSettings(GalleryRig rig)
     {
         Field("labCamera", "Camera");
         Field("closeUpDistance", "Distance");
@@ -204,7 +204,7 @@ public class ShaderLabRigEditor : Editor
     /// Nothing is hard-coded, so a shader added through the Shader List brings its
     /// settings along with it.
     /// </summary>
-    void DrawMaterialSettings(ShaderLabRig rig)
+    void DrawMaterialSettings(GalleryRig rig)
     {
         EditorGUI.BeginChangeCheck();
         Field("ps1SnapPixels", "PS1 grid, px");
@@ -220,7 +220,7 @@ public class ShaderLabRigEditor : Editor
 
         foreach (var mat in rig.Materials())
         {
-            string title = mat.shader != null ? ShaderLabScene.ShortName(mat.shader) : mat.name;
+            string title = mat.shader != null ? GalleryScene.ShortName(mat.shader) : mat.name;
             if (!Section("mat." + mat.name, title)) continue;
 
             using (new EditorGUI.IndentLevelScope())
@@ -308,7 +308,7 @@ public class ShaderLabRigEditor : Editor
     /// <summary>Foldout whose state survives a restart.</summary>
     static bool Section(string key, string title)
     {
-        string pref = "ShaderLab.section." + key;
+        string pref = "ShaderGallery.section." + key;
         bool open = EditorPrefs.GetBool(pref, false);
         bool now = EditorGUILayout.Foldout(open, title, true, EditorStyles.foldoutHeader);
         if (now != open) EditorPrefs.SetBool(pref, now);
@@ -324,14 +324,14 @@ public class ShaderLabRigEditor : Editor
         serializedObject.ApplyModifiedProperties();
     }
 
-    static void Touch(ShaderLabRig rig)
+    static void Touch(GalleryRig rig)
     {
         EditorUtility.SetDirty(rig);
-        ShaderLabScene.MarkSceneDirty(rig);
+        GalleryScene.MarkSceneDirty(rig);
         SceneView.RepaintAll();
     }
 
-    static void SaveMaterials(ShaderLabRig rig)
+    static void SaveMaterials(GalleryRig rig)
     {
         foreach (var m in rig.Materials())
             EditorUtility.SetDirty(m);

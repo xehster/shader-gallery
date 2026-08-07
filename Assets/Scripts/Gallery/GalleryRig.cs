@@ -11,7 +11,7 @@ using UnityEditor;
 /// </summary>
 [ExecuteAlways]
 [DisallowMultipleComponent]
-public class ShaderLabRig : MonoBehaviour
+public class GalleryRig : MonoBehaviour
 {
     [System.Serializable]
     public class Subject
@@ -23,6 +23,7 @@ public class ShaderLabRig : MonoBehaviour
         public bool animate = true;
         public Vector3 restPosition;
         public Vector3 restScale = Vector3.one;
+        public Quaternion restRotation = Quaternion.identity;
     }
 
     public Subject[] subjects = new Subject[0];

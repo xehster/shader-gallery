@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Lab_ConcreteFloor
+  m_Name: M_ConcreteFloor
   m_Shader: {fileID: 4800000, guid: 0091ba1aa810efa499f1c5a8db67e7a0, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0

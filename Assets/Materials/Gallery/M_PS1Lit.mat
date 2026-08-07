@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Lab_PS1Emissive
+  m_Name: M_PS1Lit
   m_Shader: {fileID: 4800000, guid: d8bdb5accb779e14c9d54c09b49e1765, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -28,7 +28,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
-        m_Texture: {fileID: 2800000, guid: 22ac2e43de1f95341b0a9d808eab5385, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -36,7 +36,7 @@ Material:
     - _AffineAmount: 1
     - _VertexSnapPixels: 240
     m_Colors:
-    - _BaseColor: {r: 0.15, g: 0.15, b: 0.18, a: 1}
-    - _EmissionColor: {r: 2.4, g: 0.9, b: 2.6, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

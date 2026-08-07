@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Lab_Hologram
-  m_Shader: {fileID: 4800000, guid: 55fb7d56c5488c24c8455f3fed965610, type: 3}
+  m_Name: M_Backdrop
+  m_Shader: {fileID: 4800000, guid: d8bdb5accb779e14c9d54c09b49e1765, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -22,20 +22,21 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Alpha: 0.8
-    - _BaseGlow: 0.5
-    - _BeamMode: 0
-    - _BeamPulseDensity: 9
-    - _BeamPulseSpeed: 4
-    - _FresnelPower: 2.5
-    - _ScanlineDensity: 18
-    - _ScanlineSpeed: 0.6
-    - _ScanlineStrength: 0.45
-    - _VertexSnapPixels: 240
+    - _AffineAmount: 1
+    - _VertexSnapPixels: 0
     m_Colors:
-    - _Color: {r: 0.4, g: 1.2, b: 1.6, a: 1}
+    - _BaseColor: {r: 0.09, g: 0.09, b: 0.12, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

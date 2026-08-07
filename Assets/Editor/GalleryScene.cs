@@ -7,9 +7,9 @@ using UnityEngine;
 /// lay the shelves out again. Kept apart from the list window, which only deals
 /// with the list and its checkboxes.
 /// </summary>
-public static class ShaderLabScene
+public static class GalleryScene
 {
-    public const string LabMaterialsFolder = "Assets/Materials/ShaderLab";
+    public const string MaterialsFolder = "Assets/Materials/Gallery";
 
     const float Step = 3f;
     const float SphereY = 1f;
@@ -22,15 +22,15 @@ public static class ShaderLabScene
     const float FirstShelfTop = 1.2f;
     const float LabelStandoff = 0.03f; // clear of the shelf face so the text doesn't z-fight
 
-    public static ShaderLabRig FindRig()
+    public static GalleryRig FindRig()
     {
-        return Object.FindFirstObjectByType<ShaderLabRig>();
+        return Object.FindFirstObjectByType<GalleryRig>();
     }
 
     /// <summary>Reuse a lab material on this shader if there is one, otherwise make it.</summary>
     public static Material MaterialFor(Shader shader)
     {
-        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { LabMaterialsFolder }))
+        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { MaterialsFolder }))
         {
             var m = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
             if (m != null && m.shader == shader) return m;
@@ -38,7 +38,7 @@ public static class ShaderLabScene
 
         var created = new Material(shader);
         AssetDatabase.CreateAsset(created, AssetDatabase.GenerateUniqueAssetPath(
-            LabMaterialsFolder + "/M_Lab_" + ShortName(shader).Replace(" ", "") + ".mat"));
+            MaterialsFolder + "/M_" + ShortName(shader).Replace(" ", "") + ".mat"));
         return created;
     }
 
@@ -49,7 +49,7 @@ public static class ShaderLabScene
         return slash >= 0 ? n.Substring(slash + 1) : n;
     }
 
-    public static void AddShader(ShaderLabRig rig, Shader shader)
+    public static void AddShader(GalleryRig rig, Shader shader)
     {
         var root = SpheresRoot();
         var mat = MaterialFor(shader);
@@ -60,37 +60,39 @@ public static class ShaderLabScene
         go.transform.SetParent(root, true);
         go.transform.localScale = Vector3.one * SphereScale;
         go.GetComponent<MeshRenderer>().sharedMaterial = mat;
-        Undo.RegisterCreatedObjectUndo(go, "Add to ShaderLab");
+        Undo.RegisterCreatedObjectUndo(go, "Add to gallery");
 
-        Append(rig, new ShaderLabRig.Subject
+        Append(rig, new GalleryRig.Subject
         {
             label = label,
             target = go.transform,
             labelObject = MakeLabel(root, label),
             animate = true,
             restPosition = new Vector3(0f, SphereY, 0f),
-            restScale = go.transform.localScale
+            restScale = go.transform.localScale,
+            restRotation = go.transform.rotation
         });
     }
 
-    public static void AddParticles(ShaderLabRig rig, GameObject prefab)
+    public static void AddParticles(GalleryRig rig, GameObject prefab)
     {
         var root = SpheresRoot();
         var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, root);
-        Undo.RegisterCreatedObjectUndo(inst, "Add to ShaderLab");
+        Undo.RegisterCreatedObjectUndo(inst, "Add to gallery");
 
-        Append(rig, new ShaderLabRig.Subject
+        Append(rig, new GalleryRig.Subject
         {
             label = prefab.name,
             target = inst.transform,
             labelObject = MakeLabel(root, prefab.name),
             animate = false, // a bounce with squash turns fire into a jellyfish
             restPosition = new Vector3(0f, 0.2f, 0f),
-            restScale = inst.transform.localScale
+            restScale = inst.transform.localScale,
+            restRotation = inst.transform.rotation
         });
     }
 
-    public static void Remove(ShaderLabRig rig, int index)
+    public static void Remove(GalleryRig rig, int index)
     {
         if (index < 0 || index >= rig.subjects.Length) return;
 
@@ -98,23 +100,49 @@ public static class ShaderLabScene
         if (s.labelObject != null) Undo.DestroyObjectImmediate(s.labelObject);
         if (s.target != null) Undo.DestroyObjectImmediate(s.target.gameObject);
 
-        var list = new List<ShaderLabRig.Subject>(rig.subjects);
+        var list = new List<GalleryRig.Subject>(rig.subjects);
         list.RemoveAt(index);
 
-        Undo.RecordObject(rig, "Remove from ShaderLab");
+        Undo.RecordObject(rig, "Remove from gallery");
         rig.subjects = list.ToArray();
+    }
+
+    /// <summary>Drop one material slot, leaving the subject and its other materials alone.</summary>
+    public static void RemoveMaterialSlot(GalleryRig rig, int index, int slot)
+    {
+        if (index < 0 || index >= rig.subjects.Length) return;
+
+        var target = rig.subjects[index].target;
+        var renderer = target != null ? target.GetComponent<MeshRenderer>() : null;
+        if (renderer == null) return;
+
+        var slots = new List<Material>(renderer.sharedMaterials);
+        if (slot < 0 || slot >= slots.Count || slots.Count < 2) return;
+
+        slots.RemoveAt(slot);
+        Undo.RecordObject(renderer, "Remove material from gallery");
+        renderer.sharedMaterials = slots.ToArray();
+
+        // the label named the pair, so drop the part that just left
+        var s = rig.subjects[index];
+        int plus = s.label.IndexOf(" + ", System.StringComparison.Ordinal);
+        if (plus > 0)
+        {
+            Undo.RecordObject(rig, "Remove material from gallery");
+            s.label = s.label.Substring(0, plus);
+        }
     }
 
     /// <summary>
     /// Deal the subjects onto shelves, build the shelves under them, then fit the
     /// floor, backdrop and wide shot around the whole thing.
     /// </summary>
-    public static void Layout(ShaderLabRig rig)
+    public static void Layout(GalleryRig rig)
     {
         int n = rig.subjects.Length;
         if (n == 0) return;
 
-        Undo.RecordObject(rig, "Lay out ShaderLab");
+        Undo.RecordObject(rig, "Lay out gallery");
 
         int columns = ColumnsFor(rig);
         int shelves = Mathf.CeilToInt(n / (float)columns);
@@ -139,7 +167,12 @@ public static class ShaderLabScene
 
             s.restPosition = new Vector3(x, y, 0f);
             s.target.position = s.restPosition;
-            s.restScale = s.target.localScale;
+
+            // never read the live transform back: a bounce squashes it, and laying out
+            // mid-hop used to bake that squash in as the subject's resting shape
+            if (s.restScale == Vector3.zero) s.restScale = s.target.localScale;
+            s.target.localScale = s.restScale;
+            s.target.rotation = s.restRotation;
 
             if (s.labelObject == null) continue;
             s.labelObject.name = "Label_" + i;
@@ -196,7 +229,7 @@ public static class ShaderLabScene
     /// and get as few shelves as ten-per-shelf allows, split evenly: 16 becomes 8+8
     /// rather than four short shelves, 20 becomes 10+10.
     /// </summary>
-    public static int ColumnsFor(ShaderLabRig rig)
+    public static int ColumnsFor(GalleryRig rig)
     {
         int n = Mathf.Max(1, rig.subjects.Length);
         if (rig.shelfColumns > 0) return Mathf.Clamp(rig.shelfColumns, 1, MaxPerShelf);
@@ -211,16 +244,16 @@ public static class ShaderLabScene
     }
 
     /// <summary>Rebuild the shelf slabs: as many as the subjects need, no leftovers.</summary>
-    static void BuildShelves(ShaderLabRig rig, int count, float width, float spacing)
+    static void BuildShelves(GalleryRig rig, int count, float width, float spacing)
     {
         var root = GameObject.Find("Shelves");
         if (root == null)
         {
             root = new GameObject("Shelves");
-            Undo.RegisterCreatedObjectUndo(root, "Lay out ShaderLab");
+            Undo.RegisterCreatedObjectUndo(root, "Lay out gallery");
         }
 
-        var mat = AssetDatabase.LoadAssetAtPath<Material>(LabMaterialsFolder + "/M_Lab_ConcreteFloor.mat");
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(MaterialsFolder + "/M_ConcreteFloor.mat");
 
         for (int i = root.transform.childCount - 1; i >= count; i--)
             Undo.DestroyObjectImmediate(root.transform.GetChild(i).gameObject);
@@ -237,7 +270,7 @@ public static class ShaderLabScene
                 shelf = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 shelf.transform.SetParent(root.transform, true);
                 if (mat != null) shelf.GetComponent<MeshRenderer>().sharedMaterial = mat;
-                Undo.RegisterCreatedObjectUndo(shelf, "Lay out ShaderLab");
+                Undo.RegisterCreatedObjectUndo(shelf, "Lay out gallery");
             }
 
             shelf.name = "Shelf_" + i;
@@ -259,17 +292,17 @@ public static class ShaderLabScene
         tmp.color = Color.black;
     }
 
-    public static void MarkSceneDirty(ShaderLabRig rig)
+    public static void MarkSceneDirty(GalleryRig rig)
     {
         if (rig == null || Application.isPlaying) return;
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(rig.gameObject.scene);
         SceneView.RepaintAll();
     }
 
-    static void Append(ShaderLabRig rig, ShaderLabRig.Subject subject)
+    static void Append(GalleryRig rig, GalleryRig.Subject subject)
     {
-        Undo.RecordObject(rig, "Add to ShaderLab");
-        var list = new List<ShaderLabRig.Subject>(rig.subjects) { subject };
+        Undo.RecordObject(rig, "Add to gallery");
+        var list = new List<GalleryRig.Subject>(rig.subjects) { subject };
         rig.subjects = list.ToArray();
     }
 
@@ -279,7 +312,7 @@ public static class ShaderLabScene
         if (root == null)
         {
             root = new GameObject("Spheres");
-            Undo.RegisterCreatedObjectUndo(root, "Add to ShaderLab");
+            Undo.RegisterCreatedObjectUndo(root, "Add to gallery");
         }
         return root.transform;
     }
@@ -297,7 +330,7 @@ public static class ShaderLabScene
         tmp.color = Color.black;
         tmp.rectTransform.sizeDelta = new Vector2(3.6f, 1.2f);
 
-        Undo.RegisterCreatedObjectUndo(go, "Add to ShaderLab");
+        Undo.RegisterCreatedObjectUndo(go, "Add to gallery");
         return go;
     }
 }

@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Lab_Skybox
-  m_Shader: {fileID: 4800000, guid: c292495ec0b3d4446a4f2b1fe20727db, type: 3}
+  m_Name: M_MoveOutline
+  m_Shader: {fileID: 4800000, guid: acf16ea445ffa2d4d86804ceccdf5bc9, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -25,14 +25,9 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _HorizonExp: 0.55
-    - _SunHaze: 0.7
-    - _SunSize: 0.015
+    - _OutlineWidth: 0.06
+    - _VertexSnapPixels: 240
     m_Colors:
-    - _BottomColor: {r: 0.15936372, g: 0.14751607, b: 0.2399643, a: 1}
-    - _HorizonColor: {r: 0.43139547, g: 0.3843236, b: 0.53333193, a: 1}
-    - _SunColor: {r: 0, g: 0, b: 0, a: 0}
-    - _SunDirection: {r: -0.761908, g: -0.10377986, b: 0.6393168, a: 0}
-    - _TopColor: {r: 0.2501425, g: 0.279012, b: 0.44855607, a: 1}
+    - _Color: {r: 0.9, g: 0.25, b: 1.8, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

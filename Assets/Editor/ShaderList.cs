@@ -13,23 +13,31 @@ public class ShaderList : EditorWindow
     {
         public Object asset;
         public string name;
-        public string note;      // why a shader might not suit a sphere
+        public string note;      // where the shader already has a job, if anywhere
         public bool inScene;     // how things are
         public bool wanted;      // how the user wants them
         public int subjectIndex; // -1 when not in the scene
+        public int slot;         // which material slot it sits in
     }
 
-    static readonly string[] MeshLightModes =
+    struct Placement
     {
-        "UniversalForward", "UniversalForwardOnly", "UniversalGBuffer", "SRPDefaultUnlit"
-    };
+        public readonly int Subject;
+        public readonly int Slot;
+
+        public Placement(int subject, int slot)
+        {
+            Subject = subject;
+            Slot = slot;
+        }
+    }
 
     readonly List<Row> _shaders = new List<Row>();
     readonly List<Row> _particles = new List<Row>();
     Vector2 _scroll;
     bool _scanned;
 
-    [MenuItem("ShaderLab/Shader List")]
+    [MenuItem("Shader Gallery/Shader List")]
     public static void Open()
     {
         var w = GetWindow<ShaderList>();
@@ -45,13 +53,13 @@ public class ShaderList : EditorWindow
 
     void OnGUI()
     {
-        var rig = ShaderLabScene.FindRig();
+        var rig = GalleryScene.FindRig();
         if (rig == null)
         {
-            EditorGUILayout.HelpBox("Open the ShaderLab scene - this window works on the rig in it.", MessageType.Info);
+            EditorGUILayout.HelpBox("Open the gallery scene - this window works on the rig in it.", MessageType.Info);
             if (GUILayout.Button("Open scene"))
             {
-                UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/ShaderLab.unity");
+                UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/ShaderGallery.unity");
                 Scan();
             }
             return;
@@ -113,8 +121,8 @@ public class ShaderList : EditorWindow
         _particles.Clear();
         _scanned = true;
 
-        var rig = ShaderLabScene.FindRig();
-        var shadersInScene = new Dictionary<Shader, int>();
+        var rig = GalleryScene.FindRig();
+        var shadersInScene = new Dictionary<Shader, Placement>();
         var prefabsInScene = new Dictionary<GameObject, int>();
 
         if (rig != null)
@@ -125,13 +133,21 @@ public class ShaderList : EditorWindow
                 if (t == null) continue;
 
                 var renderer = t.GetComponent<MeshRenderer>();
-                if (renderer != null && renderer.sharedMaterial != null && renderer.sharedMaterial.shader != null)
-                    shadersInScene[renderer.sharedMaterial.shader] = i;
+                if (renderer != null)
+                {
+                    // extra slots count too - MoveOutline rides along on the sphere in front of it
+                    var slots = renderer.sharedMaterials;
+                    for (int slot = 0; slot < slots.Length; slot++)
+                        if (slots[slot] != null && slots[slot].shader != null)
+                            shadersInScene[slots[slot].shader] = new Placement(i, slot);
+                }
 
                 var source = PrefabUtility.GetCorrespondingObjectFromSource(t.gameObject);
                 if (source != null) prefabsInScene[source] = i;
             }
         }
+
+        var featureShaders = ShadersOnRendererFeatures();
 
         foreach (var guid in AssetDatabase.FindAssets("t:Shader", new[] { "Assets" }))
         {
@@ -141,16 +157,17 @@ public class ShaderList : EditorWindow
             var shader = AssetDatabase.LoadAssetAtPath<Shader>(path);
             if (shader == null) continue;
 
-            int index;
-            bool on = shadersInScene.TryGetValue(shader, out index);
+            Placement at;
+            bool on = shadersInScene.TryGetValue(shader, out at);
             _shaders.Add(new Row
             {
                 asset = shader,
-                name = ShaderLabScene.ShortName(shader),
-                note = MeshNote(shader),
+                name = GalleryScene.ShortName(shader),
+                note = JobNote(shader, featureShaders),
                 inScene = on,
                 wanted = on,
-                subjectIndex = on ? index : -1
+                subjectIndex = on ? at.Subject : -1,
+                slot = on ? at.Slot : 0
             });
         }
 
@@ -179,20 +196,53 @@ public class ShaderList : EditorWindow
     }
 
     /// <summary>
-    /// Full-screen passes and the skybox have no geometry pass at all, so a sphere
-    /// shows nothing. We flag those but leave the tick alone - MoveOutline lands in
-    /// the same bucket and still works as a second material slot.
+    /// Say where a shader already has a job, so it's clear a sphere won't tell you much
+    /// about it. Read off the scene and the renderer rather than guessed from the passes.
     /// </summary>
-    static string MeshNote(Shader shader)
+    static string JobNote(Shader shader, HashSet<Shader> featureShaders)
     {
-        var tag = new UnityEngine.Rendering.ShaderTagId("LightMode");
-        for (int i = 0; i < shader.passCount; i++)
+        var sky = RenderSettings.skybox;
+        if (sky != null && sky.shader == shader) return "the skybox";
+        if (featureShaders.Contains(shader)) return "a renderer feature";
+        return "";
+    }
+
+    /// <summary>Shaders driving full-screen passes on the active URP renderer.</summary>
+    static HashSet<Shader> ShadersOnRendererFeatures()
+    {
+        var found = new HashSet<Shader>();
+
+        var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline
+            as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+        if (urp == null) return found;
+
+        var field = typeof(UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset).GetField(
+            "m_RendererDataList", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var list = field != null
+            ? field.GetValue(urp) as UnityEngine.Rendering.Universal.ScriptableRendererData[]
+            : null;
+        if (list == null) return found;
+
+        foreach (var data in list)
         {
-            string mode = shader.FindPassTagValue(i, tag).name;
-            if (string.IsNullOrEmpty(mode)) continue;
-            if (System.Array.IndexOf(MeshLightModes, mode) >= 0) return "";
+            if (data == null) continue;
+            foreach (var feature in data.rendererFeatures)
+            {
+                if (feature == null) continue;
+
+                var serialized = new SerializedObject(feature);
+                var it = serialized.GetIterator();
+                while (it.NextVisible(true))
+                {
+                    if (it.propertyType != SerializedPropertyType.ObjectReference) continue;
+
+                    var mat = it.objectReferenceValue as Material;
+                    if (mat != null && mat.shader != null) found.Add(mat.shader);
+                }
+            }
         }
-        return "won't draw on its own";
+
+        return found;
     }
 
     bool HasChanges()
@@ -214,22 +264,28 @@ public class ShaderList : EditorWindow
         else if (!row.wanted && row.inScene) remove++;
     }
 
-    void Apply(ShaderLabRig rig)
+    void Apply(GalleryRig rig)
     {
-        // remove first, back to front - every removal shifts the indices after it
+        // a shader in an extra slot shares its sphere with another one, so drop the
+        // material rather than the whole subject
+        foreach (var row in _shaders)
+            if (!row.wanted && row.inScene && row.slot > 0)
+                GalleryScene.RemoveMaterialSlot(rig, row.subjectIndex, row.slot);
+
+        // then the whole subjects, back to front - every removal shifts the indices after it
         var toRemove = new List<int>();
-        foreach (var row in _shaders) if (!row.wanted && row.inScene) toRemove.Add(row.subjectIndex);
+        foreach (var row in _shaders) if (!row.wanted && row.inScene && row.slot == 0) toRemove.Add(row.subjectIndex);
         foreach (var row in _particles) if (!row.wanted && row.inScene) toRemove.Add(row.subjectIndex);
         toRemove.Sort();
-        for (int i = toRemove.Count - 1; i >= 0; i--) ShaderLabScene.Remove(rig, toRemove[i]);
+        for (int i = toRemove.Count - 1; i >= 0; i--) GalleryScene.Remove(rig, toRemove[i]);
 
         foreach (var row in _shaders)
-            if (row.wanted && !row.inScene) ShaderLabScene.AddShader(rig, (Shader)row.asset);
+            if (row.wanted && !row.inScene) GalleryScene.AddShader(rig, (Shader)row.asset);
 
         foreach (var row in _particles)
-            if (row.wanted && !row.inScene) ShaderLabScene.AddParticles(rig, (GameObject)row.asset);
+            if (row.wanted && !row.inScene) GalleryScene.AddParticles(rig, (GameObject)row.asset);
 
-        ShaderLabScene.Layout(rig);
+        GalleryScene.Layout(rig);
         AssetDatabase.SaveAssets();
         Scan();
     }
