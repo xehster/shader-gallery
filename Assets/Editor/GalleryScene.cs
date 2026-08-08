@@ -60,16 +60,31 @@ public static class GalleryScene
         return slash >= 0 ? n.Substring(slash + 1) : n;
     }
 
+    /// <summary>
+    /// A sphere shows most shaders off best, but some need flat faces to say anything:
+    /// anything projecting a grid or looking through the surface has nothing square to
+    /// work with on a ball. Those declare a hidden _WantsCube and get one.
+    /// </summary>
+    public static bool WantsCube(Material material)
+    {
+        return material != null && material.HasProperty("_WantsCube");
+    }
+
     public static void AddShader(GalleryRig rig, Shader shader)
     {
         var root = SpheresRoot();
         var mat = MaterialFor(shader);
         string label = ShortName(shader);
 
-        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        go.name = "Sphere_" + label.Replace(" ", "");
+        bool cube = WantsCube(mat);
+        var go = GameObject.CreatePrimitive(cube ? PrimitiveType.Cube : PrimitiveType.Sphere);
+        go.name = (cube ? "Cube_" : "Sphere_") + label.Replace(" ", "");
         go.transform.SetParent(root, true);
-        go.transform.localScale = Vector3.one * SphereScale;
+
+        // A cube of the same width reads much bigger than a sphere, because the corners
+        // reach further than the radius. Trim it so the two take up the same room.
+        float size = cube ? SphereScale * 0.8f : SphereScale;
+        go.transform.localScale = Vector3.one * size;
         go.GetComponent<MeshRenderer>().sharedMaterial = mat;
         Undo.RegisterCreatedObjectUndo(go, "Add to gallery");
 
@@ -79,7 +94,8 @@ public static class GalleryScene
             target = go.transform,
             labelObject = MakeLabel(root, label),
             animate = true,
-            restPosition = new Vector3(0f, SphereY, 0f),
+            // half its height above the shelf, so whatever the shape it stands on the wood
+            restPosition = new Vector3(0f, size * 0.5f, 0f),
             restScale = go.transform.localScale,
             restRotation = go.transform.rotation
         });
