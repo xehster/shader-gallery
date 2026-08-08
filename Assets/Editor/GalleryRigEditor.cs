@@ -14,7 +14,7 @@ public class GalleryRigEditor : Editor
 {
     static readonly string[] TrackedFeatures =
     {
-        "RetroDither", "HeightFog", "ChromaFringes", "ScreenSpaceAmbientOcclusion"
+        "RetroDither", "HeightFog", "ChromaFringes", "ScreenSpaceAmbientOcclusion", "CrtVhs"
     };
 
     static readonly GUIContent[] MotionTabs =
@@ -375,9 +375,11 @@ public class GalleryRigEditor : Editor
 
     static void MarkRendererDirty(ScriptableRendererData data)
     {
-        // without SetDirty() the renderer isn't rebuilt and the toggle changes nothing
+        // without SetDirty() the renderer isn't rebuilt and the toggle changes nothing.
+        // It is public on ScriptableRendererData, so the lookup has to allow for that:
+        // asking for NonPublic alone finds nothing and the toggle goes quiet.
         var m = typeof(ScriptableRendererData).GetMethod("SetDirty",
-            BindingFlags.NonPublic | BindingFlags.Instance);
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
         if (m != null) m.Invoke(data, null);
     }
 }

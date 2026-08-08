@@ -64,6 +64,26 @@ MonoBehaviour:
       restoreCamera: 1
       offset: {x: 0, y: 0, z: 0, w: 0}
       cameraFieldOfView: 60
+--- !u!114 &-528991925783209384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
+  m_Name: CrtVhs
+  m_EditorClassIdentifier: 
+  m_Active: 0
+  injectionPoint: 600
+  fetchColorBuffer: 1
+  requirements: 0
+  passMaterial: {fileID: 2100000, guid: 225ec53214c98b849ad7f0de393a3156, type: 2}
+  passIndex: 0
+  bindDepthStencilAttachment: 0
+  m_Version: 1
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -93,7 +113,8 @@ MonoBehaviour:
   - {fileID: -8982152966884672874}
   - {fileID: 5756821397191398668}
   - {fileID: -4301380688020916497}
-  m_RendererFeatureMap: ad6b866f10d7b46c
+  - {fileID: -528991925783209384}
+  m_RendererFeatureMap: ad6b866f10d7b46c963a9e5277fb58830c15f64e8f56e44fefb6c9ce0d6d4ec4585aa46ea5a4a8f8
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}

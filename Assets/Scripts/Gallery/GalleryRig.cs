@@ -43,6 +43,12 @@ public class GalleryRig : MonoBehaviour
     [Tooltip("The reference sphere itself. Turns slowly so the panels aren't showing a still.")]
     public Transform sampleSubject;
 
+    [Header("Impacts")]
+    [Tooltip("Keep hitting anything that can show impacts, so the rings are visible without a fight.")]
+    public bool impacts;
+    [Tooltip("Seconds between hits on one subject.")]
+    public float impactInterval = 0.7f;
+
     [Header("Shelves")]
     [Tooltip("Subjects per shelf. Leave at 0 to work it out from how many there are; 10 is the ceiling either way.")]
     public int shelfColumns = 0;
@@ -109,8 +115,10 @@ public class GalleryRig : MonoBehaviour
 
     void Update()
     {
-        if (Application.isPlaying)
-            Animate(Time.timeSinceLevelLoad);
+        if (!Application.isPlaying) return;
+
+        Animate(Time.timeSinceLevelLoad);
+        StepImpacts(Time.timeSinceLevelLoad);
     }
 
 #if UNITY_EDITOR
@@ -122,6 +130,7 @@ public class GalleryRig : MonoBehaviour
         float now = (float)EditorApplication.timeSinceStartup;
         Animate(now);
         StepParticles(now);
+        StepImpacts(now);
         RenderSample(now);
         SceneView.RepaintAll();
     }
@@ -361,6 +370,101 @@ public class GalleryRig : MonoBehaviour
         if (motion == Motion.Static) RestSubjects();
         ApplySolo();
         UpdateCamera();
+    }
+
+    // --- impacts -------------------------------------------------------------
+
+    // one ring buffer per renderer; four is what the shader reads
+    class ImpactState
+    {
+        public readonly Vector4[] Hits = new Vector4[4];
+        public MaterialPropertyBlock Block;
+        public float NextHit;
+        public int Cursor;
+    }
+
+    readonly Dictionary<Renderer, ImpactState> _impacts = new Dictionary<Renderer, ImpactState>();
+    float _lastImpactTime;
+
+    /// <summary>
+    /// Age every ring and land new hits. Shaders opt in by declaring _AcceptsImpacts,
+    /// so this stays away from materials that would only get a stray property set on them.
+    /// </summary>
+    void StepImpacts(float now)
+    {
+        float dt = Mathf.Clamp(now - _lastImpactTime, 0f, 0.1f);
+        _lastImpactTime = now;
+
+        foreach (var renderer in ImpactTargets())
+        {
+            ImpactState state;
+            if (!_impacts.TryGetValue(renderer, out state))
+            {
+                state = new ImpactState { Block = new MaterialPropertyBlock() };
+                _impacts[renderer] = state;
+            }
+
+            if (!impacts)
+            {
+                if (state.Cursor < 0) continue; // already cleared
+
+                System.Array.Clear(state.Hits, 0, state.Hits.Length);
+                state.Cursor = -1;
+                Push(renderer, state);
+                continue;
+            }
+
+            if (state.Cursor < 0) state.Cursor = 0;
+
+            for (int i = 0; i < state.Hits.Length; i++)
+                if (state.Hits[i].w > 0f) state.Hits[i].w += dt;
+
+            state.NextHit -= dt;
+            if (state.NextHit <= 0f)
+            {
+                state.NextHit = Mathf.Max(0.05f, impactInterval) * Random.Range(0.6f, 1.4f);
+
+                // land it somewhere on the surface, in the space the shader measures from
+                float radius = LocalRadius(renderer);
+                var point = Random.onUnitSphere * radius;
+
+                state.Hits[state.Cursor] = new Vector4(point.x, point.y, point.z, 0.001f);
+                state.Cursor = (state.Cursor + 1) % state.Hits.Length;
+            }
+
+            Push(renderer, state);
+        }
+    }
+
+    static void Push(Renderer renderer, ImpactState state)
+    {
+        renderer.GetPropertyBlock(state.Block);
+        state.Block.SetVectorArray("_Hits", state.Hits);
+        renderer.SetPropertyBlock(state.Block);
+    }
+
+    IEnumerable<Renderer> ImpactTargets()
+    {
+        if (subjects == null) yield break;
+
+        foreach (var s in subjects)
+        {
+            if (s == null || s.target == null) continue;
+
+            var renderer = s.target.GetComponent<Renderer>();
+            if (renderer == null || renderer.sharedMaterial == null) continue;
+            if (!renderer.sharedMaterial.HasProperty("_AcceptsImpacts")) continue;
+
+            yield return renderer;
+        }
+    }
+
+    static float LocalRadius(Renderer renderer)
+    {
+        var filter = renderer.GetComponent<MeshFilter>();
+        return filter != null && filter.sharedMesh != null
+            ? filter.sharedMesh.bounds.extents.magnitude * 0.6f
+            : 0.5f;
     }
 
     /// <summary>Every unique material sitting on a subject in the row.</summary>
