@@ -33,8 +33,10 @@ jobs:
       - name: Replace the shared folder
         run: |
           # wipe and rewrite rather than merge: the folder is a copy, not a workspace.
-          # keeping README.md means the warning survives every sync.
-          find "$TARGET" -mindepth 1 ! -name 'README.md*' -delete
+          # README.md carries the warning and UPSTREAM.txt is written below, so both
+          # keep their .meta: upstream has no meta for either, and without this the
+          # sync deletes UPSTREAM.txt.meta on every run for Unity to make again.
+          find "$TARGET" -mindepth 1 ! -name 'README.md*' ! -name 'UPSTREAM.txt*' -delete
           cp -r "/tmp/upstream/$UPSTREAM_PATH/." "$TARGET/"
           echo "$commit" > "$TARGET/UPSTREAM.txt"
 
@@ -51,6 +53,18 @@ jobs:
 
           git commit -m "Sync shaders from unity-shaders@${commit:0:7}"
 
-          # someone may have pushed while this ran
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin HEAD:"${GITHUB_REF_NAME}"
+          # Someone may push between the rebase and the push, which loses the race and
+          # fails the job even though nothing is wrong. Rebase and try again instead.
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+
+            if git push origin HEAD:"${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+
+            echo "push rejected on attempt $attempt, someone landed a commit first"
+            sleep 5
+          done
+
+          echo "gave up after three tries"
+          exit 1
