@@ -1,6 +1,6 @@
 // PS1 Lit + per-object chromatic aberration: two extra fringe passes rewrite
 // the R and B channels slightly shifted radially from the screen center (like
-// a real lens — zero at center, growing to the edges). Keep _ChromaShift under
+// a real lens - zero at center, growing to the edges). Keep _ChromaShift under
 // ~1px for the reference "barely there" look. Costs ~3x the object's raster
 // work, so use on hero objects, not on everything.
 Shader "Purrfield/PS1 Lit Chromatic"

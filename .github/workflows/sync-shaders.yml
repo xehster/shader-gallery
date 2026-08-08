@@ -1,0 +1,56 @@
+name: Sync shaders
+
+# Copies Assets/Shaders from the unity-shaders repo into Assets/Shaders/Shared.
+# The upstream repo is public, so no token is needed to read it; writing back here
+# uses the built-in GITHUB_TOKEN. Set Settings -> Actions -> General -> Workflow
+# permissions to "Read and write" or the push at the end fails.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC, GitHub runs these late when it's busy
+  workflow_dispatch:       # "Run workflow" button, for when you don't want to wait
+
+concurrency:
+  group: sync-shaders
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/xehster/unity-shaders.git
+  UPSTREAM_PATH: Assets/Shaders
+  TARGET: Assets/Shaders/Shared
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch upstream
+        run: |
+          git clone --depth 1 "$UPSTREAM" /tmp/upstream
+          echo "commit=$(git -C /tmp/upstream rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Replace the shared folder
+        run: |
+          # wipe and rewrite rather than merge: the folder is a copy, not a workspace.
+          # keeping README.md means the warning survives every sync.
+          find "$TARGET" -mindepth 1 ! -name 'README.md*' -delete
+          cp -r "/tmp/upstream/$UPSTREAM_PATH/." "$TARGET/"
+          echo "$commit" > "$TARGET/UPSTREAM.txt"
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name shader-sync
+          git config user.email actions@users.noreply.github.com
+          git add -A "$TARGET"
+
+          if git diff --cached --quiet; then
+            echo "nothing new upstream"
+            exit 0
+          fi
+
+          git commit -m "Sync shaders from unity-shaders@${commit:0:7}"
+
+          # someone may have pushed while this ran
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin HEAD:"${GITHUB_REF_NAME}"

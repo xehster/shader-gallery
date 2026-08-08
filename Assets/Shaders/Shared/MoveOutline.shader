@@ -1,4 +1,4 @@
-// Move-mode outline: classic inverted hull — the mesh is redrawn with front
+// Move-mode outline: classic inverted hull - the mesh is redrawn with front
 // faces culled and vertices pushed out along their normals, so only a colored
 // rim around the silhouette survives the depth test. Purple = movable machine,
 // beam-blue = the one under the crosshair (tinted via MPB _Color by
