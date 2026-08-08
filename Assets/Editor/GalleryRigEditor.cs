@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -12,9 +13,13 @@ using UnityEngine.Rendering.Universal;
 [CustomEditor(typeof(GalleryRig))]
 public class GalleryRigEditor : Editor
 {
+    // Only the ones worth flipping from here. ChromaFringes is deliberately absent: it
+    // exists solely to draw the two fringe passes of PS1 Lit Chromatic, and that shader
+    // already has Chromatic Shift, which reaches zero. Leaving both would be two
+    // switches for one effect, and the material one is where you'd look for it.
     static readonly string[] TrackedFeatures =
     {
-        "RetroDither", "HeightFog", "ChromaFringes", "ScreenSpaceAmbientOcclusion", "CrtVhs"
+        "RetroDither", "HeightFog", "ScreenSpaceAmbientOcclusion", "CrtVhs"
     };
 
     static readonly GUIContent[] MotionTabs =
@@ -313,6 +318,8 @@ public class GalleryRigEditor : Editor
 
         EditorGUILayout.LabelField("Shared with the whole project - put them back after a shoot.",
             EditorStyles.miniLabel);
+        EditorGUILayout.LabelField("Greyed out ones belong to one shader; tune those in Shader settings.",
+            EditorStyles.miniLabel);
 
         foreach (var feature in data.rendererFeatures)
         {
@@ -329,7 +336,10 @@ public class GalleryRigEditor : Editor
                 EditorUtility.SetDirty(feature);
                 EditorUtility.SetDirty(data);
                 MarkRendererDirty(data);
-                SceneView.RepaintAll();
+
+                // Game view is not a SceneView, so RepaintAll() there leaves it showing
+                // the frame from before the toggle and the change looks like it missed.
+                InternalEditorUtility.RepaintAllViews();
             }
         }
     }
