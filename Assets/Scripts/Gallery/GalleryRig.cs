@@ -132,21 +132,55 @@ public class GalleryRig : MonoBehaviour
     /// </summary>
     void StepParticles(float now)
     {
-        if (subjects == null) return;
-
         float dt = Mathf.Clamp(now - _lastParticleTime, 0f, 0.1f);
         _lastParticleTime = now;
-        if (dt <= 0f) return;
+        StepParticlesBy(dt);
+    }
+
+    /// <summary>Advance every particle system by an exact amount.</summary>
+    public void StepParticlesBy(float dt)
+    {
+        if (subjects == null || dt <= 0f) return;
+
+        foreach (var ps in ParticleSystems())
+        {
+            if (!ps.isPlaying) ps.Play(true);
+            ps.Simulate(dt, true, false, false);
+        }
+    }
+
+    /// <summary>Empty them out, so a recording always starts from the same frame.</summary>
+    public void ResetParticles()
+    {
+        foreach (var ps in ParticleSystems())
+        {
+            ps.Clear(true);
+            ps.Play(true);
+        }
+    }
+
+    IEnumerable<ParticleSystem> ParticleSystems()
+    {
+        if (subjects == null) yield break;
 
         foreach (var s in subjects)
         {
             if (s == null || s.target == null) continue;
 
             var ps = s.target.GetComponent<ParticleSystem>();
-            if (ps == null) continue;
-            if (!ps.isPlaying) ps.Play(true);
-            ps.Simulate(dt, true, false, false);
+            if (ps != null) yield return ps;
         }
+    }
+
+    /// <summary>
+    /// Put the row exactly where it belongs at this moment, without waiting for the
+    /// editor to tick. Animate() is a plain function of time, so frames come out evenly
+    /// spaced however much the editor stutters while recording.
+    /// </summary>
+    public void SampleAt(float time, float particleStep)
+    {
+        Animate(time);
+        StepParticlesBy(particleStep);
     }
 
     float _lastParticleTime;

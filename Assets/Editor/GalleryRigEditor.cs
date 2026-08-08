@@ -42,6 +42,7 @@ public class GalleryRigEditor : Editor
         }
 
         EditorGUILayout.Space(6f);
+        if (Section("recording", "Recording")) DrawRecording(rig);
         if (Section("shelves", "Shelves")) DrawShelfSettings(rig);
         if (Section("motion", "Motion settings")) DrawMotionDetails(rig);
         if (Section("camera", "Camera")) DrawCameraSettings(rig);
@@ -105,6 +106,65 @@ public class GalleryRigEditor : Editor
     }
 
     // --- folded sections -----------------------------------------------------
+
+    void DrawRecording(GalleryRig rig)
+    {
+        int fps = EditorPrefs.GetInt(RecordFps, 12);
+        int width = EditorPrefs.GetInt(RecordWidth, 900);
+
+        EditorGUI.BeginChangeCheck();
+        fps = EditorGUILayout.IntSlider("Frames per second", fps, 8, 30);
+        width = EditorGUILayout.IntPopup("Width", width,
+            new[] { "480", "640", "900", "1200" }, new[] { 480, 640, 900, 1200 });
+        if (EditorGUI.EndChangeCheck())
+        {
+            EditorPrefs.SetInt(RecordFps, fps);
+            EditorPrefs.SetInt(RecordWidth, width);
+        }
+
+        float loop = GalleryRecorder.LoopLength(rig);
+        EditorGUILayout.LabelField(
+            "One loop is " + loop.ToString("0.0") + "s, so " + Mathf.RoundToInt(loop * fps) + " frames",
+            EditorStyles.miniLabel);
+
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            if (GUILayout.Button("Record the gallery")) Record(rig, fps, width, "docs/gallery.gif");
+
+            bool focused = rig.FocusIndex >= 0;
+            using (new EditorGUI.DisabledScope(!focused))
+            {
+                string name = focused ? rig.subjects[rig.FocusIndex].label : "nothing";
+                if (GUILayout.Button("Record " + name))
+                    Record(rig, fps, width, "docs/" + Slug(name) + ".gif");
+            }
+        }
+
+        if (rig.FocusIndex < 0)
+            EditorGUILayout.LabelField("Pick a close-up above to record a single shader.", EditorStyles.miniLabel);
+    }
+
+    static void Record(GalleryRig rig, int fps, int width, string path)
+    {
+        if (GalleryRecorder.Record(rig, fps, width, path)) return;
+        if (GalleryRecorder.LastError == "Cancelled.") return;
+
+        EditorUtility.DisplayDialog("Recording failed", GalleryRecorder.LastError, "OK");
+    }
+
+    static string Slug(string name)
+    {
+        var s = new System.Text.StringBuilder();
+        foreach (char c in name.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c)) s.Append(c);
+            else if (s.Length > 0 && s[s.Length - 1] != '-') s.Append('-');
+        }
+        return s.ToString().Trim('-');
+    }
+
+    const string RecordFps = "ShaderGallery.record.fps";
+    const string RecordWidth = "ShaderGallery.record.width";
 
     void DrawShelfSettings(GalleryRig rig)
     {
