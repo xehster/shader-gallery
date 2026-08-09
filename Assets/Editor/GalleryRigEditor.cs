@@ -252,19 +252,73 @@ public class GalleryRigEditor : Editor
     /// Nothing is hard-coded, so a shader added through the Shader List brings its
     /// settings along with it.
     /// </summary>
+    /// <summary>
+    /// One entry per exhibit, holding everything that exhibit is made of. Some are just a
+    /// material, some are a material plus the scripts that drive it, and grouping by
+    /// subject keeps those halves together instead of scattering them down a flat list.
+    ///
+    /// A shared material shows under the first subject using it. Listing it again lower
+    /// down would suggest the two copies are separate, and they are not.
+    /// </summary>
     void DrawMaterialSettings(GalleryRig rig)
     {
-        foreach (var mat in rig.Materials())
+        if (rig.subjects == null) return;
+
+        var seenMaterials = new HashSet<Material>();
+        var materials = new List<Material>();
+        var scripts = new List<MonoBehaviour>();
+
+        foreach (var subject in rig.subjects)
         {
-            string title = mat.shader != null ? GalleryScene.ShortName(mat.shader) : mat.name;
-            if (!Section("mat." + mat.name, title)) continue;
+            if (subject == null || subject.target == null) continue;
+
+            materials.Clear();
+            foreach (var mat in rig.MaterialsOf(subject))
+                if (seenMaterials.Add(mat)) materials.Add(mat);
+
+            scripts.Clear();
+            foreach (var behaviour in rig.TunablesOf(subject)) scripts.Add(behaviour);
+
+            int parts = materials.Count + scripts.Count;
+            if (parts == 0) continue;
+            if (!Section("subject." + subject.label, subject.label)) continue;
 
             using (new EditorGUI.IndentLevelScope())
             {
-                var editor = MaterialEditorFor(mat);
-                if (editor != null) editor.PropertiesGUI();
+                // one part needs no second foldout: that would be a click for nothing
+                bool split = parts > 1;
+
+                foreach (var mat in materials)
+                    DrawPart(split, "mat." + mat.name,
+                        mat.shader != null ? GalleryScene.ShortName(mat.shader) : mat.name,
+                        () =>
+                        {
+                            var editor = MaterialEditorFor(mat);
+                            if (editor != null) editor.PropertiesGUI();
+                        });
+
+                foreach (var behaviour in scripts)
+                    DrawPart(split, "tune." + behaviour.GetType().Name + "." + behaviour.name,
+                        ObjectNames.NicifyVariableName(behaviour.GetType().Name),
+                        () =>
+                        {
+                            var editor = EditorFor(behaviour);
+                            if (editor != null) editor.OnInspectorGUI();
+                        });
             }
         }
+    }
+
+    static void DrawPart(bool foldout, string key, string title, System.Action body)
+    {
+        if (!foldout)
+        {
+            body();
+            return;
+        }
+
+        if (!Section(key, title)) return;
+        using (new EditorGUI.IndentLevelScope()) body();
     }
 
     MaterialEditor MaterialEditorFor(Material mat)
@@ -278,12 +332,27 @@ public class GalleryRigEditor : Editor
     }
 
     readonly Dictionary<Material, MaterialEditor> _materialEditors = new Dictionary<Material, MaterialEditor>();
+    readonly Dictionary<Object, Editor> _componentEditors = new Dictionary<Object, Editor>();
 
     void OnDisable()
     {
         foreach (var editor in _materialEditors.Values)
             if (editor != null) DestroyImmediate(editor);
         _materialEditors.Clear();
+
+        foreach (var editor in _componentEditors.Values)
+            if (editor != null) DestroyImmediate(editor);
+        _componentEditors.Clear();
+    }
+
+    Editor EditorFor(Object target)
+    {
+        Editor editor;
+        if (_componentEditors.TryGetValue(target, out editor) && editor != null) return editor;
+
+        editor = CreateEditor(target);
+        _componentEditors[target] = editor;
+        return editor;
     }
 
     /// <summary>Labels off makes for a cleaner recording, so this one stays in reach.</summary>

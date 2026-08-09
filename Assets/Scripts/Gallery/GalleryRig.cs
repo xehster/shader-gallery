@@ -468,28 +468,46 @@ public class GalleryRig : MonoBehaviour
     }
 
     /// <summary>Every unique material sitting on a subject in the row.</summary>
-    public IEnumerable<Material> Materials()
+    public IEnumerable<Material> MaterialsOf(Subject s)
     {
-        if (subjects == null) yield break;
+        if (s == null || s.target == null) yield break;
 
         var seen = new HashSet<Material>();
-        foreach (var s in subjects)
+
+        // children too: a subject can be a holder with the mesh and its extras
+        // underneath, and those extras carry shaders worth reaching
+        foreach (var renderer in s.target.GetComponentsInChildren<Renderer>(true))
+            foreach (var m in renderer.sharedMaterials)
+                if (m != null && seen.Add(m)) yield return m;
+
+        // 2D panels draw through a CanvasRenderer, so their material isn't on a Renderer.
+        // Skip graphics left on the stock UI material - that's the mask, not a shader on show.
+        foreach (var graphic in s.target.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
         {
-            if (s == null || s.target == null) continue;
+            var m = graphic.material;
+            if (m == null || m == graphic.defaultMaterial) continue;
+            if (seen.Add(m)) yield return m;
+        }
+    }
 
-            var renderer = s.target.GetComponent<Renderer>();
-            if (renderer != null)
-                foreach (var m in renderer.sharedMaterials)
-                    if (m != null && seen.Add(m)) yield return m;
+    /// <summary>
+    /// Scripts a subject brought along with it, so their settings can sit in the panel
+    /// beside the material ones. Some effects are half shader and half component, and
+    /// making you go hunting in the hierarchy for the other half is no good.
+    ///
+    /// Anything that is not the rig itself counts, so a new exhibit turns up on its own
+    /// the same way a new shader's material does.
+    /// </summary>
+    public IEnumerable<MonoBehaviour> TunablesOf(Subject s)
+    {
+        if (s == null || s.target == null) yield break;
 
-            // 2D panels draw through a CanvasRenderer, so their material isn't on a Renderer.
-            // Skip graphics left on the stock UI material - that's the mask, not a shader on show.
-            foreach (var graphic in s.target.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
-            {
-                var m = graphic.material;
-                if (m == null || m == graphic.defaultMaterial) continue;
-                if (seen.Add(m)) yield return m;
-            }
+        foreach (var behaviour in s.target.GetComponentsInChildren<MonoBehaviour>(true))
+        {
+            if (behaviour == null || behaviour is GalleryRig) continue;
+            // UI graphics are already covered by their materials
+            if (behaviour is UnityEngine.UI.Graphic) continue;
+            yield return behaviour;
         }
     }
 
