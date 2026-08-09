@@ -273,13 +273,19 @@ public class GalleryRigEditor : Editor
             if (subject == null || subject.target == null) continue;
 
             materials.Clear();
+            bool takesHits = false;
             foreach (var mat in rig.MaterialsOf(subject))
+            {
+                // asked of every material of the subject, not just the ones listed below,
+                // so a shared material already shown elsewhere still brings the toggle here
+                if (mat.HasProperty("_AcceptsImpacts")) takesHits = true;
                 if (seenMaterials.Add(mat)) materials.Add(mat);
+            }
 
             scripts.Clear();
             foreach (var behaviour in rig.TunablesOf(subject)) scripts.Add(behaviour);
 
-            int parts = materials.Count + scripts.Count;
+            int parts = materials.Count + scripts.Count + (takesHits ? 1 : 0);
             if (parts == 0) continue;
             if (!Section("subject." + subject.label, subject.label)) continue;
 
@@ -305,8 +311,29 @@ public class GalleryRigEditor : Editor
                             var editor = EditorFor(behaviour);
                             if (editor != null) editor.OnInspectorGUI();
                         });
+
+                // The rig lands the hits, not the material, so these two live on the rig.
+                // They still belong under the shader that shows them, which is where
+                // anyone would go looking for them.
+                if (takesHits)
+                    DrawPart(split, "hits." + subject.label, "Impacts", () => DrawImpacts(rig));
             }
         }
+    }
+
+    void DrawImpacts(GalleryRig rig)
+    {
+        Field("impacts", "Keep hitting it");
+
+        using (new EditorGUI.DisabledScope(!rig.impacts))
+            Field("impactInterval", "Seconds between hits");
+
+        if (!rig.impacts) return;
+
+        if (!Application.isPlaying && !rig.animateInEditMode)
+            EditorGUILayout.HelpBox(
+                "Run in Edit Mode is off under Motion settings, so the hits only land in Play.",
+                MessageType.Info);
     }
 
     static void DrawPart(bool foldout, string key, string title, System.Action body)
