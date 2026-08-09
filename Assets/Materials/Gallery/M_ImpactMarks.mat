@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_ImpactMarks
+  m_Shader: {fileID: 4800000, guid: 458aabcd42984504293b0ff4459b1f05, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords:
+  - _SEETHROUGH_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _CrackGlow: 0.8
+    - _CrackLength: 0.8
+    - _CrackWidth: 0.004
+    - _Crush: 0.5
+    - _Hole: 0.14
+    - _Life: 0
+    - _MarkStyle: 0
+    - _MeleeSize: 1.8
+    - _MeleeStretch: 1.5
+    - _MeleeWeb: 0.7
+    - _Refraction: 0.15
+    - _Rings: 0.5
+    - _SeeThrough: 1
+    - _Shatter: 0.45
+    - _Size: 0.09
+    - _Smoothness: 0.85
+    - _SpecStrength: 1.1
+    - _Spokes: 7
+    - _Spread: 0.12
+    - _TakesMarks: 1
+    - _Variation: 0.6
+    - _WantsCube: 1
+    - _ZWrite: 0
+    m_Colors:
+    - _BaseColor: {r: 0.74, g: 0.85, b: 0.9, a: 1}
+    - _CrackColor: {r: 1, g: 1, b: 1, a: 1}
+    - _DustColor: {r: 0.86, g: 0.85, b: 0.82, a: 1}
+    - _PitColor: {r: 0.05, g: 0.04, b: 0.04, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
