@@ -1,12 +1,15 @@
 # Shader Gallery
 
-I write shaders and then lose them. One sits in a game project, another in some test
-scene, a third one I only have as a screenshot. So I made a shelf to put them on.
+Shaders from my Unity projects, collected in one scene so I can compare them, adjust
+their materials and record them without opening each game.
 
-![The gallery scene](docs/gallery.gif)
+![Shaders on the gallery shelves](docs/gallery.gif)
 
-One Unity scene: shelves, a sphere per shader, a label under each. Drop a shader into the
-project, tick it in a list, and it's on a shelf with the rest.
+Recorded with the gallery's built-in GIF recorder.
+
+Most shaders sit on spheres, some use cubes, and UI shaders get flat panels. Particle
+effects sit alongside them. Each exhibit has a label and a close-up button in the
+inspector.
 
 Unity 6000.0.32f1, URP 17.0.3. Open `Assets/Scenes/ShaderGallery.unity` and select
 **Gallery Rig**, the panel is in the inspector.
@@ -14,8 +17,9 @@ Unity 6000.0.32f1, URP 17.0.3. Open `Assets/Scenes/ShaderGallery.unity` and sele
 ## Adding a shader
 
 Put the file in `Assets/Shaders/Local/`, then **Shader Gallery → Shader List**, Rescan,
-tick it, Apply. The material, the sphere, the label and the close-up button appear on
-their own, and the shelves rearrange to fit.
+tick it, Apply. The gallery creates a material, a display object and a label, then
+rearranges the shelves. Shaders that need custom geometry or scripts still need those
+set up separately.
 
 Ten per shelf, split evenly, so eleven shaders sit as 6+5 and twenty as 10+10. You can
 set the number yourself in the panel.
@@ -27,7 +31,8 @@ repo, brought in by a scheduled GitHub Action. Don't edit it, the next sync over
 whole folder. To change one of those shaders, copy it to `Local/` without its `.meta` and
 rename the shader on the first line. The copy is then yours and nothing overwrites it.
 
-`Local/` is never touched by anything, so pulling updates can't eat your work.
+The sync leaves `Local/` alone. New shared shaders appear in the list after Rescan;
+tick the ones you want and Apply to add them to the scene.
 
 ## 2D shaders
 
@@ -40,12 +45,16 @@ carry. The **3D / 2D** button next to the tick overrules the guess.
 
 ## Recording
 
-**Recording → Record the gallery** writes `docs/gallery.gif`. Pick a close-up first and
-the second button records just that shader.
+On **Gallery Rig**, open **Recording** to choose the frame rate and output width.
+**Record the gallery** writes `docs/gallery.gif`, the file shown above. Use **Wide shot**
+first for the full gallery. Pick a close-up and use the second record button to save
+that exhibit to its own GIF in `docs/`.
 
-It renders frame by frame rather than grabbing the screen, so the spacing is even and the
-loop closes: recording length comes from the motion mode, one bounce cycle or one full
-spin. Needs ffmpeg on PATH, or installed with `winget install Gyan.FFmpeg`.
+Frames are rendered at fixed time steps and encoded with ffmpeg. A recording lasts one
+bounce cycle, one full spin, or two seconds in Still mode. Shader animations and
+particles can have their own timing, so they may not loop at the same point.
+
+Needs ffmpeg on PATH, or installed with `winget install Gyan.FFmpeg`.
 
 ## The panel
 
